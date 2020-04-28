@@ -7,6 +7,8 @@ Connect multiple SuperCollider instances over the internet and exchange messages
 Includes also a front-end (html) to check the status of the router, who is connected, messages being routed, and so on.
 
 
-*server/* folder is where the server code is. It is written in Python (>=3.7) and uses asyncio and python-osc.
+**server/** folder is where the server code is. It is written in Python (>=3.7) and uses asyncio and python-osc.
 
-*supercollider/* folder holds a SuperCollider class that can be used to join the network. See *examples/* folder.
+**supercollider/** folder holds a SuperCollider class that can be used to join the network. See **examples/** folder.
+
+To install the class simply copy the **supercollider/OscRouterClient.sc** file to your SuperCollider **Extensions/** folder (*~/.local/share/SuperCollider/Extensions/*)
