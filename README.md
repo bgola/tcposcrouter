@@ -1,4 +1,6 @@
-# A OSC message router over TCP designed with SuperCollider in mind
+# OSC routing over TCP
+
+A OSC message router over TCP designed with SuperCollider in mind
 
 Connect multiple SuperCollider instances over the internet and exchange messages between them.
 
