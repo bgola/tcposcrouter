@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto:300&display=swap');
+
+body {
+    font-family: "Roboto";
+}
+
+#content {
+    width: 100%;
+    float: left;
+}
+
+#mcontainer {
+    width: 70%;
+    float: left;
+}
+
+#ucontainer {
+    width: 30%;
+    float: left;
+}
+
+#mcontainer li, #ucontainer li {
+    list-style-type: none;
+}
