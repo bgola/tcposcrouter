@@ -1,10 +1,9 @@
 OscRouterClient {
-	var serveraddress, <username, <password, <onConnect,
+	var <serveraddress, <username, <password, <onConnect,
 	<groupname, <grouppassword,
 	<serverport, <tcpRecvPort, <responders,
 	<pid, <netAddr, <id,
-	peerCheckers, <peers, <peerWatcher,
-	<>peerTimeout = 11, <lastPingTimes,
+	<peers, <peerWatcher,
 	authenticated;
 
 
@@ -15,22 +14,9 @@ OscRouterClient {
 	init {
 		responders = ();
 		peers = Set();
-		lastPingTimes = ();
-		peerCheckers = ();
 		authenticated = false;
 		ShutDown.add({this.close});
 	}
-
-	checkPeers {
-		var now = Main.elapsedTime;
-		lastPingTimes.keysValuesDo { |name, time|
-			if (now - time > peerTimeout) {
-				peers.remove(name);
-				lastPingTimes.put(name, nil);
-			}
-		}
-	}
-
 
 	join {
 		arg onSuccess, onFailure;
@@ -63,10 +49,8 @@ OscRouterClient {
 					registerChecker.play;
 					onSuccess.notNil.if({onSuccess.value});
 					peerWatcher = OSCFunc({ |msg|
-						var peername = msg[1];
-						peers.add(peername);
-						lastPingTimes.put(peername, Main.elapsedTime);
-					}, "/oscrouter/ping");
+						peers = msg[1..];
+					}, '/oscrouter/userlist');
 				});
 			});
 		}, {
@@ -82,7 +66,8 @@ OscRouterClient {
 		this.close;
 		"Trying to reconnect...".postln;
 		fork {
-			{joined.not}.while {
+			var retries = 5;
+			{(joined.not).and(retries > 0)}.while {
 				this.join({
 					var counter=0;
 					joined = true;
@@ -104,14 +89,15 @@ OscRouterClient {
 					});
 				});
 				5.wait;
+				retries = retries - 1;
 			};
+			joined.not.if { "5 attempts to reconnect failed, giving up!" };
 		};
 	}
 
 	enablePing {
 		SystemClock.sched(3.0, {
 			authenticated.if({
-				this.checkPeers;
 				this.sendMsg("/oscrouter/ping", username);
 				3.0;
 			}, {
@@ -150,17 +136,26 @@ OscRouterClient {
 		{netAddr.sendMsg(*msg)}.try({this.tryToReconnect(msg)})
 	}
 
+	sendMsgToUser { arg ... args;
+		var username = args[0];
+		peers.find([username]).notNil.if({
+			this.sendMsg('/oscrouter/private', username, *args[1..]);
+		}, {
+			"Don't know user".postln;
+		});
+	}
+
 	sendMsgArray {arg symbol, array;
 		symbol = this.formatSymbol(symbol);
 		netAddr.sendMsg(symbol, *array)
 	}
 
-	addResp { arg id, function;
+	addResp { arg id, function, permanent = true;
 		netAddr.isConnected.if({
 			// there are two ways to pass in the symbol id... fix it here
 			id = this.formatSymbol(id);
 			responders[id].notNil.if({this.removeResp(id)});
-			responders.add(id -> OSCFunc(function, id, recvPort: tcpRecvPort));
+			responders.add(id -> OSCFunc(function, id, recvPort: tcpRecvPort).permanent_(permanent));
 		}, {
 			"You must register your client with .join on a Server before you add a responder".warn
 		})
