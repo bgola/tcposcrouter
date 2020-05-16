@@ -280,7 +280,7 @@ class User:
         for user in User.index.by_name.values():
             if user is self:
                 continue
-            user.send_message(address, *args)
+            user.send_message("/oscrouter/private", self.name, *args[1:])
 
 
 class Group:
