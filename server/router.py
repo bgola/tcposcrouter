@@ -4,19 +4,15 @@ from pythonosc.dispatcher import Dispatcher
 
 from asyncio import StreamWriter, StreamReader
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import asyncio, struct, time, random
 import websockets
-import socket
 import logging
-import logging.handlers
+import socket
 import json
 
-warning_handler = logging.StreamHandler()
-warning_handler.setLevel(logging.WARNING)
-handler = logging.handlers.RotatingFileHandler("router.log",  mode='a', maxBytes=1024*1024, backupCount=10)
-logging.basicConfig(format='[%(asctime)s] %(message)s', level=logging.INFO, handlers=[handler, warning_handler])
+import settings
 
 
 class Connection:
@@ -53,18 +49,36 @@ class Connection:
     def register(self, address, *args):
         username = args[0]
         password = args[1]
-        sid = args[2]
 
-        user = User.index.by_name.get(username, None)
+        if len(args) < 5:
+            logging.warning(f"{self} is trying to register without a group!! Fallback to default group.")
+            groupname = 'oscrouter'
+            grouppassword = 'oscrouter'
+            sid = args[2]
+        else:
+            groupname = args[2]
+            grouppassword = args[3]
+            sid = args[4]
+
+        group = Group.index.get(groupname, None)
+
+        if group is None:
+            group = Group(groupname, grouppassword)
+        
+        if not group.auth(groupname, grouppassword):
+            return
+
+        user = group.users.by_name.get(username, None)
         
         if user is None:
             # new user
             user = User()
+            user.group = group
 
         if user.auth(username, password):
             self.user = user
             self.user.connections.append(self)
-            User.index.update(self.user)
+            self.user.group.users.update(self.user)
 
             # Send reply message confirming register
             address = f"/oscrouter/register/{username}/{sid}"
@@ -157,8 +171,8 @@ class Connection:
 
     async def join(self):
         self.add_route_map()
-        User.index.notification_callbacks.append(self.send_user_list)
-        User.index.notify_cbs()
+        self.user.group.users.notification_callbacks.append(self.send_user_list)
+        self.user.group.users.notify_cbs()
 
         while True and self.on:
             await self.process_messages()
@@ -166,16 +180,16 @@ class Connection:
 
         if len(self.user.connections) <= 1:
             # User left
-            User.index.unregister(self.user)
-            conns = len(User.index.by_connection.keys())
-            users = len(User.index.by_name.keys())
+            self.user.group.users.unregister(self.user)
+            conns = len(self.user.group.users.by_connection.keys())
+            users = len(self.user.group.users.by_name.keys())
             logging.info(f"User '{self.user}' left! total connections left: {conns}, users left: {users}")
         else: 
-            del User.index.by_connection[self]
+            del self.user.group.users.by_connection[self]
         
         self.user.connections.remove(self)
-        User.index.notify_cbs()
-        User.index.notification_callbacks.remove(self.send_user_list)
+        self.user.group.users.notify_cbs()
+        self.user.group.users.notification_callbacks.remove(self.send_user_list)
 
         await self.close()
 
@@ -196,10 +210,14 @@ class Connection:
 
 
 class UserRegistry:
-    def __init__(self):
+    def __init__(self, group):
         self.by_name: Dict[str, User] = {}
         self.by_connection: Dict[Connection, User] = {}
         self.notification_callbacks = []
+        self._group = group
+
+    def __str__(self):
+        return f"UserRegistry[{self._group}]"
 
     def update(self, user):
         new_user = False
@@ -211,9 +229,9 @@ class UserRegistry:
             self.by_connection[conn] = user
 
         if new_user:
-            logging.info(f"New user '{user}' registered in UserIndex")
+            logging.info(f"New user '{user}' registered in '{self}'")
         else:
-            logging.info(f"User '{user}' updated in the UserIndex")
+            logging.info(f"User '{user}' updated in '{self}'")
         self.notify_cbs()
 
     def notify_cbs(self):
@@ -226,21 +244,52 @@ class UserRegistry:
             del self.by_connection[conn]
         self.notify_cbs()
 
+    def __len__(self):
+        return len(self.by_name.keys())
+
+    def all(self):
+        return self.by_name.values()
+
+
+class Group:
+    name: str
+    password: str
+    users: UserRegistry
+
+    index = {}
+
+    def __init__(self, name: str, password: str):
+        self.name = name
+        self.password = password
+        self.users = UserRegistry(self)
+
+    def __str__(self):
+        return self.name
+
+    def auth(self, name, password):
+        if self.name == name and self.password == password:
+            Group.index[self.name] = self
+            return True
+        return False
+
+    def close(self):
+        del Group.index[self.name]
+
 
 class User:
     name: str
     password: str
+    group: Optional[Group]
     connections: List[Connection]
-
-    index: UserRegistry = UserRegistry()
 
     def __init__(self):
         self.name = ""
         self.password = ""
+        self.group = None
         self.connections = []
 
     def __str__(self):
-        return f"{self.name}[{len(self.connections)}]"
+        return f"{self.name}({self.group})[{len(self.connections)}]"
 
     @property
     def authenticated(self):
@@ -248,13 +297,13 @@ class User:
 
     def auth(self, name, password):
         if self.name == "" and self.password == "":
-            logging.info(f"Creating new user with '{name}'")
+            logging.info(f"Creating new user with name '{name}' in group '{self.group}'")
             self.name = name
             self.password = password
             return True
 
         if self.name != name or self.password != password:
-            logging.error(f"User '{self.name}' failed to authenticate.")
+            logging.error(f"User '{self.name}' failed to authenticate to group '{self.group}'.")
             return False
 
         logging.info(f"User '{self}' authenticated.")
@@ -270,27 +319,17 @@ class User:
         if address == "/oscrouter/private":
             if len(args) >= 1:
                 username = args[0]
-                user = User.index.by_name.get(username, None)
+                user = self.group.users.by_name.get(username, None)
                 if user:
                     logging.info(f"-> sending message '{args[1]}' with args: '{args[2:]}' from '{self}' to {user}")
-                    user.send_message(*args[1:])
+                    user.send_message("/oscrouter/private", self.name, *args[1:])
             return
 
         logging.info(f"-> routing message '{address}' with args: '{args}' from '{self}'")
-        for user in User.index.by_name.values():
+        for user in self.group.users.by_name.values():
             if user is self:
                 continue
             user.send_message(address, *args)
-
-
-class Group:
-    name: str
-    password: str
-    users: List[User]
-
-    def __init__(self, name: str, password: str):
-        self.name = name
-        self.password = password
 
 
 async def handle_new_conn(reader, writer):
@@ -302,9 +341,6 @@ async def handle_new_conn(reader, writer):
 
     await connection.close()
 
-    if connection in User.index.by_connection.keys():
-        logging.error(f"{connection} is '{connection.on}'  still in use but we are leaving")
-    
     logging.info(f"{connection} closed")
     
 
@@ -344,16 +380,20 @@ async def handle_websocket(websocket, path):
     if "editor" in path:
         await handle_editor_request(websocket)
         return
+    
     msgs = []
-    users = []
+    users = {}
+
     def msg_ws(user, address, *args):
         msgs.append((user, address, args))
     def user_ws(users_now):
         for user in users_now:
             users.append(user)
+    
     Connection.notification_callbacks.append(msg_ws)
-    User.index.notification_callbacks.append(user_ws)
-    User.index.notify_cbs()
+
+    #User.index.notification_callbacks.append(user_ws)
+    #User.index.notify_cbs()
 
     async def send_msgs():
         msgs_dict = {'messages': []}
@@ -387,7 +427,6 @@ async def handle_websocket(websocket, path):
     logging.info(f"Websocket {websocket} connection leaving...")
 
 async def main():
-    import settings
     loop = asyncio.get_event_loop()
     server = await asyncio.start_server(
         handle_new_conn, '0.0.0.0', settings.OSC_PORT)
