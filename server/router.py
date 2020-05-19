@@ -255,7 +255,7 @@ class Group:
     name: str
     password: str
     users: UserRegistry
-
+    
     index = {}
 
     def __init__(self, name: str, password: str):
@@ -382,18 +382,21 @@ async def handle_websocket(websocket, path):
         return
     
     msgs = []
-    users = {}
+    users = []
 
     def msg_ws(user, address, *args):
         msgs.append((user, address, args))
+
     def user_ws(users_now):
         for user in users_now:
             users.append(user)
     
     Connection.notification_callbacks.append(msg_ws)
 
-    #User.index.notification_callbacks.append(user_ws)
-    #User.index.notify_cbs()
+    oscrouter = Group.index.get('oscrouter', None)
+    if oscrouter:
+        oscrouter.users.notification_callbacks.append(user_ws)
+        oscrouter.users.notify_cbs()
 
     async def send_msgs():
         msgs_dict = {'messages': []}
@@ -423,7 +426,8 @@ async def handle_websocket(websocket, path):
         logging.exception(f"Websocket {websocket} raised exception...")
     finally:
         Connection.notification_callbacks.remove(msg_ws)
-        User.index.notification_callbacks.remove(user_ws)
+        if oscrouter:
+            oscrouter.users.notification_callbacks.remove(user_ws)
     logging.info(f"Websocket {websocket} connection leaving...")
 
 async def main():
