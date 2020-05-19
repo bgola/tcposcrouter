@@ -9,6 +9,6 @@ Includes also a front-end (html) to check the status of the router, who is conne
 
 **server/** folder is where the server code is. It is written in Python (>=3.7) and uses asyncio and python-osc.
 
-**supercollider/** folder holds a SuperCollider class that can be used to join the network. See **examples/** folder.
+For a client example please check the SuperCollider class at:
 
-To install the class simply copy the **supercollider/OscRouterClient.sc** file to your SuperCollider **Extensions/** folder (*~/.local/share/SuperCollider/Extensions/*)
+https://github.com/aiberlin/HyperDisCo/blob/master/Classes/OSCRouterClient.sc
