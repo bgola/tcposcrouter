@@ -11,7 +11,7 @@ Includes also a front-end (html) to check the status of the router, who is conne
 You will need Python >= 3.7 together with websockets and python-osc python libraries.
 
 ```
-$ pip install -r websockets python-osc
+$ pip install websockets python-osc
 $ pip install -e git+http://github.com/bgola/tcposcrouter.git#egg=tcposcrouter
 ```
 
