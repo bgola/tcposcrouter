@@ -47,8 +47,8 @@ class Connection:
             cb(self.user, address, *args)
 
     def register(self, address, *args):
-        username = args[0]
-        password = args[1]
+        username = str(args[0])
+        password = str(args[1])
 
         if len(args) < 5:
             logging.warning(f"{self} is trying to register without a group!! Fallback to default group.")
@@ -56,8 +56,8 @@ class Connection:
             grouppassword = 'oscrouter'
             sid = args[2]
         else:
-            groupname = args[2]
-            grouppassword = args[3]
+            groupname = str(args[2])
+            grouppassword = str(args[3])
             sid = args[4]
 
         group = Group.index.get(groupname, None)
@@ -329,7 +329,7 @@ class User:
         for user in self.group.users.by_name.values():
             if user is self:
                 continue
-            user.send_message("/oscrouter/private", self.name, *args[1:])
+            user.send_message(address, *args)
 
 
 async def handle_new_conn(reader, writer):
