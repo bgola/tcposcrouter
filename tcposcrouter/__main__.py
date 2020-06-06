@@ -40,8 +40,8 @@ def main():
     parser.add_argument('--osc-port', help='OSC port to listen', default=55555)
     parser.add_argument('--websocket-port', help='WebSocket port to listen', default=5681)
     parser.add_argument('--log-dir', help='Path where to save logs', default='.')
-    parser.add_argument('--fullchain-pem', help='Path to SSL fullchain.pem (if using https for the websocket)')
-    parser.add_argument('--private-key', help='Path to SSL privkey.pem (if using https for the websocket)')
+    parser.add_argument('--fullchain-pem', help='Path to SSL fullchain.pem (if using SSL for the websocket)')
+    parser.add_argument('--private-key', help='Path to SSL privkey.pem (if using SSL for the websocket)')
 
     args = parser.parse_args()
     asyncio.run(run_server(args.osc_port, args.websocket_port, args.log_dir, args.fullchain_pem, args.private_key))

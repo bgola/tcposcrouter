@@ -63,6 +63,7 @@ class Connection:
             group = Group(groupname, grouppassword)
         
         if not group.auth(groupname, grouppassword):
+            logging.error(f"User '{username}' failed to join group '{group}'. Wrong group password.")
             return
 
         user = group.users.by_name.get(username, None)
@@ -175,15 +176,7 @@ class Connection:
             await self.process_messages()
             last_alive = time.time()
 
-        if len(self.user.connections) <= 1:
-            # User left
-            self.user.group.users.unregister(self.user)
-            conns = len(self.user.group.users.by_connection.keys())
-            users = len(self.user.group.users.by_name.keys())
-            logging.info(f"User '{self.user}' left! total connections left: {conns}, users left: {users}")
-        else: 
-            del self.user.group.users.by_connection[self]
-        
+        self.user.group.unregister(self)       
         self.user.connections.remove(self)
         self.user.group.users.notify_cbs()
         self.user.group.users.notification_callbacks.remove(self.send_user_list)
@@ -263,6 +256,16 @@ class Group:
     def __str__(self):
         return self.name
 
+    def unregister(self, connection):
+        if len(connection.user.connections) <= 1:
+            self.users.unregister(connection.user)
+        else: 
+            del self.users.by_connection[self]
+ 
+        if len(self.users) == 0:
+            logging.info(f"Group '{self}' is empty, deleting it.")
+            self.close()
+
     def auth(self, name, password):
         if self.name == name and self.password == password:
             Group.index[self.name] = self
@@ -300,7 +303,7 @@ class User:
             return True
 
         if self.name != name or self.password != password:
-            logging.error(f"User '{self.name}' failed to authenticate to group '{self.group}'.")
+            logging.error(f"User '{self.name}' failed to authenticate in group '{self.group}'.")
             return False
 
         logging.info(f"User '{self}' authenticated.")
