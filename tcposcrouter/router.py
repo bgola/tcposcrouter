@@ -63,7 +63,7 @@ class Connection:
             group = Group(groupname, grouppassword)
         
         if not group.auth(groupname, grouppassword):
-            logging.error(f"User '{username}' failed to join group '{group}'. Wrong group password.")
+            logging.info(f"User '{username}' failed to join group '{group}'. Wrong group password.")
             return
 
         user = group.users.by_name.get(username, None)
