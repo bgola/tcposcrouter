@@ -260,7 +260,7 @@ class Group:
         if len(connection.user.connections) <= 1:
             self.users.unregister(connection.user)
         else: 
-            del self.users.by_connection[self]
+            del self.users.by_connection[connection]
  
         if len(self.users) == 0:
             logging.info(f"Group '{self}' is empty, deleting it.")
