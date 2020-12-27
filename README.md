@@ -36,3 +36,37 @@ For a client example please check the SuperCollider class at:
 
 https://github.com/aiberlin/HyperDisCo/blob/master/Classes/OSCRouterClient.sc
 
+A client should send an OSC message to the server following the format:
+
+```
+{
+'path': '/oscrouter/register',
+'arguments': userName, userPassword, groupName, groupPassword, aRandomId
+}
+```
+
+On a successful connection the server will reply with the following message:
+
+```
+{
+'path': '/oscrouter/register',
+'arguments': userName, aRandomId
+}
+```
+
+The `userName` is created with the given `userPassword` inside the given `groupName`. 
+
+For both the `userName` and `groupName` if one already exists the server will try to authenticate with the correspondent password, or fail if the password doesn't match.
+
+Once the user is authenticated in a group (the `/oscrouter/register` message is sent back), you can start sending messages to the server. Any messages sent to the server from that point will be forwarded to all the users in the same group. 
+
+It is also possible to send private messages by sending a message like:
+
+```
+{
+'path': '/oscrouter/private',
+'arguments': userName, path, msg_arguments,
+}
+```
+
+Your client will receive private messages in the `/oscrouter/private` address as well. For every user leaving or joining the group the client also receives the current list of users as `/oscrouter/userlist`.
