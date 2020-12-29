@@ -4,6 +4,8 @@ An OpenSoundControl message router over TCP written in Python designed with Supe
 
 Connect multiple SuperCollider instances over the internet and exchange messages between them.
 
+While tcposcrouter was developed with SuperCollider in mind, it is possible to use it with any other software that supports OSC and TCP.
+
 # Installing 
 
 You will need Python >= 3.7 together with python-osc python library.
