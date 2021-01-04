@@ -102,6 +102,8 @@ class Connection:
             # connection dropped maybe
             return b''
         length = struct.unpack('>i', data)[0]
+        if length <= 0:
+            return b''
         try:
             data = await self.reader.readexactly(length)
         except (
