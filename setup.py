@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='tcposcrouter',
-      version='0.1.2',
+      version='0.2.0',
       author='Bruno Gola',
       author_email='me@bgo.la',
       description='OpenSoundControl message router over TCP',
@@ -18,7 +18,7 @@ setup(name='tcposcrouter',
           "Operating System :: OS Independent",
 		  "Framework :: AsyncIO",
       ],
-	  install_requires=['python-osc'],
+	  install_requires=['python-osc', 'sliplib'],
       keywords='osc opensoundcontrol tcp',
       python_requires='>=3.7',
       entry_points={
