@@ -13,7 +13,7 @@ tcposcrouter supports both spec-1.0 and spec-1.1 in regards to framing the messa
 See https://forum.renoise.com/t/osc-via-tcp-has-no-framing/42459 for an technical explanation.
 
 SuperCollider implements OSC spec-1.0 while PureData implements spec-1.1 (with mrpeach external). 
-See the examples folder for example in both SuperCollider and PureData. 
+See the [#examples] folder for examples in both SuperCollider and PureData. 
 
 tcposcrouter will open two ports by default, one for each spec version, but the internal routing/user/group state is shared between them.
 
