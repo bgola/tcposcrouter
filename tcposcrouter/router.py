@@ -5,11 +5,13 @@ from pythonosc.dispatcher import Dispatcher
 from asyncio import StreamWriter, StreamReader
 
 from typing import Dict, List, Optional
+from sliplib import Driver as SlipDriver
 
 import asyncio, struct, time, random
 import logging
 import socket
 import json
+
 
 class Connection:
     writer: StreamWriter
@@ -17,9 +19,13 @@ class Connection:
 
     notification_callbacks = []
 
-    def __init__(self, reader, writer):
+    def __init__(self, reader, writer, osc_spec=1.0):
         self.reader = reader
         self.writer = writer
+        self.osc_spec = osc_spec
+        self._slip_driver = None
+        if self.osc_spec == 1.1:
+            self._slip_driver = SlipDriver()
         self.dispatcher: Dispatcher = Dispatcher()
         self.dispatcher.map("/oscrouter/register", self.register)
         self.dispatcher.map("*", self.call_notification_callbacks)
@@ -46,15 +52,17 @@ class Connection:
         username = str(args[0])
         password = str(args[1])
 
-        if len(args) < 5:
-            logging.warning(f"{self} is trying to register without a group!! Fallback to default group.")
-            groupname = 'oscrouter'
-            grouppassword = 'oscrouter'
-            sid = args[2]
-        else:
+        if len(args) >= 4:
             groupname = str(args[2])
             grouppassword = str(args[3])
-            sid = args[4]
+            if len(args) >= 5:
+                sid = args[4]
+            else:
+                sid = 0
+        else:
+            # bad register message, ignore
+            logging.info(f"Bad register message {args}")
+            return
 
         group = Group.index.get(groupname, None)
 
@@ -91,6 +99,11 @@ class Connection:
         return not self._leave and self.reader and (not self.reader.at_eof())
 
     async def read_message(self):
+        if self.osc_spec == 1.0:
+            return await self.read_message_spec_10()
+        return await self.read_message_spec_11()
+    
+    async def read_message_spec_10(self):
         try:
             data = await self.reader.readexactly(4)
         except (
@@ -115,6 +128,27 @@ class Connection:
             return b''
         except Exception as e:
             logging.exception("Error while reading from TCP socket")
+            return b''
+        return data
+
+    async def read_message_spec_11(self):
+        try:
+            data = []
+            while not data:
+                raw_data = await self.reader.read(1)
+                if raw_data == b'':
+                    # got EOF, connection is closed
+                    data = raw_data
+                    break
+                data = self._slip_driver.receive(raw_data)
+                
+        except (
+                asyncio.exceptions.IncompleteReadError,
+                TimeoutError,
+                ConnectionResetError,
+                OSError,
+                BrokenPipeError) as e:
+            # connection dropped maybe
             return b''
         return data
 
@@ -148,11 +182,15 @@ class Connection:
 
     async def _reader_coro(self):
         data = await self.read_message()
-        if not data:
+        if data == b'':
             self._leave = True
             return
-
-        self.dispatcher.call_handlers_for_packet(data, self.peername)
+        
+        if isinstance(data, list):
+            for message in data:
+                self.dispatcher.call_handlers_for_packet(message, self.peername)
+        else:
+            self.dispatcher.call_handlers_for_packet(data, self.peername)
     
     async def _writer_coro(self):
         data = await self._to_write.get()
@@ -195,10 +233,13 @@ class Connection:
         for arg in args:
             msg.add_arg(arg)
         data = msg.build().dgram
-        length = len(data)
-        data = struct.pack('>i', length) + data
-        self._to_write.put_nowait(data)
-
+        if self.osc_spec == 1.0:
+            length = len(data)
+            data = struct.pack('>i', length) + data
+            self._to_write.put_nowait(data)
+        else:
+            data = self._slip_driver.send(data)
+            self._to_write.put_nowait(data)
 
 class UserRegistry:
     def __init__(self, group):
@@ -333,13 +374,15 @@ class User:
             user.send_message(address, *args)
 
 
-async def handle_new_conn(reader, writer):
-    connection = Connection(reader, writer)
-    await connection.try_register()
+def handle_new_conn(spec=1.0):
+    async def handler(reader, writer):
+        connection = Connection(reader, writer, spec)
+        await connection.try_register()
 
-    if connection.user and connection.user.authenticated:
-        await connection.join()
+        if connection.user and connection.user.authenticated:
+            await connection.join()
 
-    await connection.close()
+        await connection.close()
 
-    logging.info(f"{connection} closed")
+        logging.info(f"{connection} closed")
+    return handler
