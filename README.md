@@ -10,7 +10,7 @@ While tcposcrouter was developed with SuperCollider in mind, it is possible to u
 
 tcposcrouter supports both spec-1.0 and spec-1.1 in regards to framing the messages for sending over TCP stream.
 
-See https://forum.renoise.com/t/osc-via-tcp-has-no-framing/42459 for an technical explanation.
+See https://forum.renoise.com/t/osc-via-tcp-has-no-framing/42459 for a technical explanation.
 
 SuperCollider implements OSC spec-1.0 while PureData implements spec-1.1 (with mrpeach external). 
 See the examples folder for examples in both SuperCollider and PureData. 
