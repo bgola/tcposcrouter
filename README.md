@@ -45,9 +45,7 @@ optional arguments:
   --log-dir LOG_DIR     Path where to save logs
 ```
 
-
-
-By default it listens for OSC on the 55555 **TCP** port.
+By default it listens for OSC spec-1.0 on the 55555 **TCP** and spec-1.1 on 55556 port.
 
 # Client
 
