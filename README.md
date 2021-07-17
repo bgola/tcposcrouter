@@ -47,6 +47,36 @@ optional arguments:
 
 By default it listens for OSC spec-1.0 on the 55555 **TCP** and spec-1.1 on 55556 port.
 
+# Using Docker
+
+You can also run *tcposcrouter* via [Docker](https://www.docker.com/) for which you will only need Docker installed.
+
+Assuming you have cloned this repository you start by building an image called *tcposcrouter* by executing
+
+```shell
+docker build -t tcposcrouter .
+```
+
+After building of the image we can start a container which runs *tcposcrouter* for us.
+Have in mind that we need to explicitly state any port forwarding from our host system to the container.
+With defaults a deployment of the server can look like this
+
+```shell
+docker run --name tcposcrouter -d -p 5555:5555 -p 5556:5556 tcposcrouter
+```
+
+To stop the server we can simply call
+
+```shell
+docker stop tcposcrouter
+```
+
+To restart the server again we can simply call
+
+```shell
+docker start tcposcrouter
+```
+
 # Client
 
 For a client example please check the SuperCollider class at:
